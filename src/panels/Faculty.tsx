@@ -4,6 +4,7 @@ import { Separator, Spacing } from '@vkontakte/vkui';
 import {
   Icon28BookSpreadOutline,
 } from '@vkontakte/icons';
+import Faculty_9 from '../assets/9fakultet.png';
 
 export const Faculty = () => {
   return (
@@ -12,15 +13,13 @@ export const Faculty = () => {
       
       <Group>
         <Placeholder>
-          <iframe 
-            src="https://vkvideo.ru/video_ext.php?oid=-237198280&id=456239017&hash=ea5f28efd55b7705&hd=3&autoplay=1" 
-            width="100%" 
-            height="360" 
-            allow="autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock;"
-            frameBorder="0"
-            allowFullScreen
-            style={{ borderRadius: '10px' }}
-          />
+          <img
+                  src={Faculty_9}
+                  style={{
+                    width: '100%',
+                    borderRadius: '12px',
+                    boxShadow: '0 4px 15px rgba(0,0,0,0.12)',
+                  }} />
           Добро пожаловать на официальную страницу факультета!
         </Placeholder>
       </Group>
@@ -88,6 +87,20 @@ export const Faculty = () => {
             </div>
             </div>
         </Group>
+        <Group header={<Title level="2">Видео о факультете</Title>}></Group>
+        <Group>
+            <Placeholder>
+              <iframe 
+                src="https://vkvideo.ru/video_ext.php?oid=-237198280&id=456239017&hash=ea5f28efd55b7705&hd=3&autoplay=1" 
+                width="100%" 
+                height="360" 
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture; screen-wake-lock;"
+                frameBorder="0"
+                allowFullScreen
+                style={{ borderRadius: '10px' }}
+              />
+            </Placeholder>
+          </Group>
         </Card>
       </Group>
     </Panel>

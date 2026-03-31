@@ -12,14 +12,14 @@ export const Profile = () => {
           icon={<Icon28UserCircleOutline width={72} height={72} />}
           stretched
         >
-          Здесь будет информация о студенте
+          Здесь будет информация о абитуриенте
         </Placeholder>
       </Group>
 
       <Group>
         <Text style={{ textAlign: 'center', padding: 16 }}>
           Пока здесь ничего нет.<br />
-          Скоро добавим информацию о студенте.
+          Скоро добавим информацию об абитуриенте.
         </Text>
       </Group>
     </Panel>
