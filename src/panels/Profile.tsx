@@ -17,21 +17,26 @@ import {
   Banner,
   Snackbar,
 } from '@vkontakte/vkui';
-import { Icon28UserCircleOutline, Icon28CheckCircleOutline, Icon28EditOutline } from '@vkontakte/icons';
+import { 
+  Icon28UserCircleOutline, 
+  Icon28CheckCircleOutline, 
+  Icon28EditOutline 
+} from '@vkontakte/icons';
 import bridge from '@vkontakte/vk-bridge';
 import { API_BASE_URL } from '../AppConfig';
 
 /**
- * Интерфейс данных пользователя, которые хранятся в MongoDB
+ * Интерфейс данных пользователя (соответствует модели в MongoDB)
  */
 interface UserProfile {
-  vkId: number;           // Уникальный ID пользователя из ВКонтакте
-  firstName: string;      // Имя
-  lastName: string;       // Фамилия
-  photoUrl?: string;      // Ссылка на аватар пользователя
-  group?: string;         // Номер учебной группы
-  course?: string;        // Текущий курс обучения
-  specialty?: string;     // Специальность / направление подготовки
+  vkUserId: number;
+  firstName: string;
+  lastName: string;
+  photoUrl?: string;
+  photo200?: string;
+  group?: string;
+  course?: string;
+  specialty?: string;
 }
 
 /**
@@ -39,132 +44,96 @@ interface UserProfile {
  */
 export const Profile = () => {
 
-  // ==================== СОСТОЯНИЯ (useState) ====================
-
-  /**
-   * Хранит полные данные пользователя, полученные из MongoDB
-   * null = данные ещё не загружены или произошла ошибка
-   */
   const [user, setUser] = useState<UserProfile | null>(null);
-
-  /**
-   * Показывает, загружаются ли сейчас данные с сервера
-   * true → показываем крутящийся спиннер (ScreenSpinner)
-   */
   const [isLoading, setIsLoading] = useState(true);
-
-  /**
-   * Режим редактирования профиля
-   * true  → показываем форму для изменения данных
-   * false → показываем обычный вид профиля (или баннер для заполнения)
-   */
   const [isEditing, setIsEditing] = useState(false);
-
-  /**
-   * Состояние процесса сохранения данных
-   * Нужно, чтобы отключать кнопку и показывать текст "Сохраняем..." во время запроса
-   */
   const [saving, setSaving] = useState(false);
-
-  /**
-   * Snackbar (всплывающее уведомление внизу экрана)
-   * Используется для показа сообщений об успехе или ошибке
-   */
   const [snackbar, setSnackbar] = useState<React.ReactNode>(null);
 
-  /**
-   * Данные формы редактирования
-   * Хранит то, что пользователь вводит в поля
-   */
   const [formData, setFormData] = useState({
     group: '',
     course: '',
     specialty: '',
   });
 
-  // ==================== ЭФФЕКТЫ ====================
-
-  /**
-   * Этот эффект выполняется один раз при первом открытии вкладки "Профиль"
-   * Аналогично componentDidMount в классовых компонентах
-   */
+  // Загрузка профиля при монтировании компонента
   useEffect(() => {
     loadUserProfile();
-  }, []);   // Пустой массив зависимостей = выполняется только при монтировании
-
-  // ==================== ОСНОВНЫЕ ФУНКЦИИ ====================
+  }, []);
 
   /**
-   * Основная функция загрузки профиля пользователя
-   * Выполняет два важных действия:
-   * 1. Получает данные из VK (имя, фамилия, фото)
-   * 2. Отправляет их на backend для проверки/создания записи в MongoDB
+   * Загружает данные пользователя с backend
    */
   const loadUserProfile = async () => {
-    setIsLoading(true);                    // Включаем индикатор загрузки
+    setIsLoading(true);
 
     try {
-      // Получаем информацию о текущем пользователе из VK
       const vkUser = await bridge.send('VKWebAppGetUserInfo');
 
-      // Отправляем данные на наш сервер
-      const res = await fetch(`${API_BASE_URL}/user/me`, {
+      const response = await fetch(`${API_BASE_URL}/api/save-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vkId: vkUser.id,
+          vkUserId: vkUser.id,
           firstName: vkUser.first_name,
           lastName: vkUser.last_name,
-          photoUrl: vkUser.photo_200,
+          photoUrl: vkUser.photo_100,
+          photo200: vkUser.photo_200,
+          city: vkUser.city,
+          country: vkUser.country,
+          sex: vkUser.sex,
+          bdate: vkUser.bdate,
         }),
       });
 
-      if (res.ok) {
-        const data: UserProfile = await res.json();
-        setUser(data);                     // Сохраняем полученные данные
+      if (response.ok) {
+        const data: UserProfile = await response.json();
+        
+        console.log('📥 Данные от сервера:', data.user);   // ← Очень важно для отладки!
 
-        // Заполняем форму текущими значениями из базы данных
+        setUser(data.user);   // ← Здесь должно происходить сохранение
+        // Заполняем форму
         setFormData({
-          group: data.group || '',
-          course: data.course || '',
-          specialty: data.specialty || '',
+          group: data.user.group || '',
+          course: data.user.course || '',
+          specialty: data.user.specialty || '',
         });
+      } else {
+        console.warn('Сервер вернул ошибку:', response.status);
       }
-    } catch (err) {
-      console.error('Ошибка загрузки профиля:', err);
+    } catch (error) {
+      console.error('❌ Ошибка при загрузке профиля:', error);
     } finally {
-      setIsLoading(false);                 // В любом случае выключаем загрузку
+      
+      setIsLoading(false);
     }
   };
 
   /**
-   * Сохраняет изменения профиля на сервере (в MongoDB)
-   * Вызывается при нажатии кнопки "Сохранить изменения"
+   * Сохраняет изменения профиля
    */
   const handleSave = async () => {
     if (!user) return;
 
-    setSaving(true);                       // Показываем, что идёт сохранение
+    setSaving(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/user/update`, {
+      const response = await fetch(`${API_BASE_URL}/api/user/update`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vkId: user.vkId,
+          vkUserId: user.vkUserId,           // ← Важно: используем vkUserId
           group: formData.group.trim(),
           course: formData.course,
           specialty: formData.specialty.trim(),
         }),
       });
 
-      if (res.ok) {
-        const updatedUser: UserProfile = await res.json();
-        
-        setUser(updatedUser);              // Обновляем данные в интерфейсе
-        setIsEditing(false);               // Выходим из режима редактирования
+      if (response.ok) {
+        const updatedUser: UserProfile = await response.json();
+        setUser(updatedUser);
+        setIsEditing(false);
 
-        // Показываем уведомление об успешном сохранении
         setSnackbar(
           <Snackbar
             onClose={() => setSnackbar(null)}
@@ -175,21 +144,19 @@ export const Profile = () => {
           </Snackbar>
         );
       } else {
-        throw new Error('Ошибка при сохранении на сервере');
+        throw new Error('Ошибка сохранения');
       }
     } catch (err) {
       console.error(err);
       setSnackbar(
         <Snackbar onClose={() => setSnackbar(null)} duration={3000}>
-          Не удалось сохранить данные. Попробуйте позже.
+          Не удалось сохранить данные
         </Snackbar>
       );
     } finally {
-      setSaving(false);                    // Снимаем состояние сохранения
+      setSaving(false);
     }
   };
-
-  // ==================== УСЛОВНЫЙ РЕНДЕР (что показывать) ====================
 
   if (isLoading) {
     return (
@@ -206,38 +173,35 @@ export const Profile = () => {
     <Panel id="profile">
       <PanelHeader>Профиль</PanelHeader>
 
-      {/* Шапка с аватаром и именем */}
+      {/* Шапка */}
       <Group>
         <Box style={{ textAlign: 'center', padding: '32px 16px 20px' }}>
           <Avatar 
             size={96} 
-            src={user?.photoUrl} 
+            src={user?.photoUrl || user?.photo200} 
             style={{ margin: '0 auto 16px' }}
           >
-            {!user?.photoUrl && <Icon28UserCircleOutline width={48} height={48} />}
+            {!user?.photoUrl && !user?.photo200 && <Icon28UserCircleOutline width={48} height={48} />}
           </Avatar>
 
           <Title level="1" weight="3">
             {user?.firstName} {user?.lastName}
           </Title>
-          <Text style={{ color: 'var(--vkui--color_text_subtle)', marginTop: 4 }}>
+          <Text weight="2" style={{ color: 'var(--vkui--color_text_subtle)', marginTop: 4 }}>
             Студент факультета № 9
           </Text>
         </Box>
       </Group>
 
-      {/* Баннер для новых пользователей */}
+      {/* Баннер */}
       {!user?.group && !isEditing && (
         <Group>
-          <Banner
-            mode="tint"
-            style={{ margin: '12px' }}
-          >
+          <Banner mode="tint" style={{ margin: 12 }}>
             <Box style={{ padding: '4px 0' }}>
               <Title level="2" weight="3" style={{ marginBottom: 8 }}>
                 Заполните профиль
               </Title>
-              <Text style={{ color: 'var(--vkui--color_text_subtle)' }}>
+              <Text weight="2" style={{ color: 'var(--vkui--color_text_subtle)' }}>
                 Чтобы пользоваться всеми возможностями приложения, 
                 укажите группу, курс и направление
               </Text>
@@ -256,7 +220,7 @@ export const Profile = () => {
         </Group>
       )}
 
-      {/* Показываем заполненный профиль */}
+      {/* Заполненный профиль */}
       {user?.group && !isEditing && (
         <Group header={<Title level="2">Информация о студенте</Title>}>
           <Card mode="shadow" style={{ margin: '12px' }}>
@@ -284,7 +248,7 @@ export const Profile = () => {
         </Group>
       )}
 
-      {/* Форма редактирования профиля */}
+      {/* Форма редактирования */}
       {isEditing && (
         <Group header={<Title level="2">Редактирование профиля</Title>}>
           <FormItem top="Группа *" topMultiline>
@@ -345,7 +309,6 @@ export const Profile = () => {
         </Group>
       )}
 
-      {/* Всплывающее уведомление */}
       {snackbar}
     </Panel>
   );
