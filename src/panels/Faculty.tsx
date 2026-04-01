@@ -29,10 +29,10 @@ export const Faculty = () => {
         <Group>
             {/* Заголовок */}
             <div style={{ padding: '16px 16px 8px' }}>
-            <Title level="2" weight="semibold" style={{ color: 'var(--vkui--color_text_accent)' }}>
+            <Title level="2" weight="3" style={{ color: 'var(--vkui--color_text_accent)' }}>
                 Факультет № 9
             </Title>
-            <Text weight="medium" style={{ color: '#888', marginTop: 4 }}>
+            <Text weight="2" style={{ color: '#888', marginTop: 4 }}>
                 (до 2011 г. — факультет № 6)
             </Text>
             </div>
@@ -41,7 +41,7 @@ export const Faculty = () => {
 
             {/* Девиз */}
             <div style={{ padding: '16px' }}>
-            <Text weight="semibold" style={{ fontSize: '15px', lineHeight: '20px' }}>
+            <Text weight="3" style={{ fontSize: '15px', lineHeight: '20px' }}>
                 «ИЗМЕРЯЕМ. ВЫЧИСЛЯЕМ. АНАЛИЗИРУЕМ. УПРАВЛЯЕМ»
             </Text>
             </div>
@@ -78,11 +78,11 @@ export const Faculty = () => {
             {/* Статистика внизу */}
             <div style={{ padding: '12px 16px', display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
             <div>
-                <Text weight="semibold" style={{ color: 'var(--vkui--color_text_accent)' }}>6</Text>
+                <Text weight="3" style={{ color: 'var(--vkui--color_text_accent)' }}>6</Text>
                 <Text style={{ fontSize: '13px', color: '#888' }}>профессоров</Text>
             </div>
             <div>
-                <Text weight="semibold" style={{ color: 'var(--vkui--color_text_accent)' }}>27</Text>
+                <Text weight="3" style={{ color: 'var(--vkui--color_text_accent)' }}>27</Text>
                 <Text style={{ fontSize: '13px', color: '#888' }}>доцентов</Text>
             </div>
             </div>

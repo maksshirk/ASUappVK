@@ -5,7 +5,7 @@ import {
   Group,
   Title,
   SimpleGrid,
-  Div,
+  Box,
   Text,
   Spacing,
   Button,
@@ -119,8 +119,8 @@ export const Departments = () => {
             {selectedDept.shortName} кафедра
           </PanelHeader>
 
-          <Div>
-            <Title level="2" weight="semibold" style={{ marginBottom: 12 }}>
+          <Box>
+            <Title level="2" weight="3" style={{ marginBottom: 12 }}>
               {selectedDept.name}
             </Title>
 
@@ -129,7 +129,7 @@ export const Departments = () => {
             </Text>
 
             {/* Галерея изображений */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {selectedDept.infoImages.map((img, index) => (
                 <img
                   key={index}
@@ -142,7 +142,7 @@ export const Departments = () => {
                   }}
                 />
               ))}
-            </div>
+            </Box>
 
             <Spacing size={32} />
 
@@ -154,7 +154,7 @@ export const Departments = () => {
             >
               Вернуться к списку кафедр
             </Button>
-          </Div>
+          </Box>
         </>
       )}
     </Panel>

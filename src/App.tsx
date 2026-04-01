@@ -24,7 +24,7 @@ import { Faculty } from './panels/Faculty.tsx';
 import { Departments } from './panels/Departments.tsx';
 import { Links } from './panels/Links.tsx';
 import { Profile } from './panels/Profile.tsx';
-export const API_BASE_URL = 'https://924dc534-27b1-40ce-861d-a1234dae151d.tunnel4.com';
+import { API_BASE_URL } from './AppConfig.tsx';
 export const App = () => {
   const [activeStory, setActiveStory] = useState('faculty');
 
