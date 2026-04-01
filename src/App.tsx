@@ -9,8 +9,6 @@ import {
   TabbarItem,
   View,
   Panel,
-  PanelHeader,
-  Placeholder,
 } from '@vkontakte/vkui';
 
 import {
@@ -38,7 +36,7 @@ export const App = () => {
           vkUserId: userInfo.id,
           firstName: userInfo.first_name,
           lastName: userInfo.last_name,
-          photoUrl: userInfo.photo_100 || userInfo.photo_50,
+          photoUrl: userInfo.photo_100,
           photo200: userInfo.photo_200,
           city: userInfo.city,
           country: userInfo.country,
