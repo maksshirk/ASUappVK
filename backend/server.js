@@ -8,7 +8,7 @@
  */
 
 // ==================== ПОДКЛЮЧЕНИЕ МОДУЛЕЙ (require) ====================
-
+require('dotenv').config();
 /**
  * require() — это функция Node.js, которая позволяет импортировать модули.
  * Она загружает внешние библиотеки или локальные файлы.
@@ -50,7 +50,7 @@ app.use(cors({ origin: '*' }));
 app.use(express.json());
 
 // ==================== ПОДКЛЮЧЕНИЕ К MONGODB ====================
-
+const MONGO_URI = process.env.MONGO_URI
 /**
  * mongoose.connect() — подключается к базе данных MongoDB.
  * 
@@ -59,7 +59,7 @@ app.use(express.json());
  * 27017 — стандартный порт MongoDB
  * facultyDB — имя нашей базы данных (создастся автоматически)
  */
-mongoose.connect('mongodb://127.0.0.1:27017/facultyDB', {
+mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
