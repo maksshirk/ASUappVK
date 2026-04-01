@@ -2,77 +2,72 @@
  * server.js
  * 
  * Основной файл backend-сервера для VK Mini App факультета №9.
- * 
- * Этот файл запускает Express-сервер, подключается к MongoDB
- * и обрабатывает запросы от мобильного приложения.
+ * Отвечает за регистрацию пользователей и обновление их профиля.
  */
 
-// ==================== ПОДКЛЮЧЕНИЕ МОДУЛЕЙ (require) ====================
+// ====================== 1. ЗАГРУЗКА ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ======================
+// Должно быть в самом начале файла!
 require('dotenv').config();
+
 /**
- * require() — это функция Node.js, которая позволяет импортировать модули.
- * Она загружает внешние библиотеки или локальные файлы.
+ * require() — это способ подключения модулей в Node.js (CommonJS).
+ * Мы подключаем внешние библиотеки и наш локальный файл модели.
  */
 
-// express — фреймворк для создания веб-сервера
+// express — основной фреймворк для создания HTTP-сервера
 const express = require('express');
 
-// mongoose — библиотека для работы с MongoDB (удобная работа со схемами)
+// mongoose — ODM (Object Data Modeling) для удобной работы с MongoDB
 const mongoose = require('mongoose');
 
-// cors — позволяет фронтенду (VK Mini App) делать запросы к нашему серверу
+// cors — позволяет фронтенду (VK Mini App) делать запросы к серверу
 const cors = require('cors');
 
-// Подключаем нашу модель пользователя из папки models
-// .js можно не указывать, Node.js сам поймёт
+// Подключаем модель пользователя
 const User = require('./models/User');
 
 /**
  * Создаём экземпляр Express-приложения.
- * app — это наш веб-сервер, через который мы будем обрабатывать запросы.
+ * Через этот объект мы настраиваем сервер и определяем маршруты.
  */
 const app = express();
 
-// ==================== MIDDLEWARE (промежуточное ПО) ====================
+// ====================== MIDDLEWARE ======================
 
 /**
  * cors() — разрешает кросс-доменные запросы.
- * origin: '*' — разрешает запросы с любого сайта (удобно для разработки).
- * В продакшене лучше указывать конкретный адрес вашего VK Mini App.
+ * origin: '*' — разрешает запросы с любого источника (удобно на этапе разработки).
  */
 app.use(cors({ origin: '*' }));
 
 /**
- * express.json() — важный middleware.
- * Он автоматически преобразует JSON из тела запроса (req.body) в JavaScript-объект.
- * Без него req.body будет undefined.
+ * express.json() — парсит тело запроса в формате JSON.
+ * Без этого middleware req.body будет undefined.
  */
 app.use(express.json());
 
-// ==================== ПОДКЛЮЧЕНИЕ К MONGODB ====================
-const MONGO_URI = process.env.MONGO_URI
-/**
- * mongoose.connect() — подключается к базе данных MongoDB.
- * 
- * mongodb://127.0.0.1:27017/facultyDB
- * 127.0.0.1 — это localhost
- * 27017 — стандартный порт MongoDB
- * facultyDB — имя нашей базы данных (создастся автоматически)
- */
-mongoose.connect(MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-})
-  .then(() => console.log('✅ MongoDB успешно подключён к базе facultyDB'))
-  .catch((err) => console.error('❌ Ошибка подключения к MongoDB:', err.message));
+// ====================== ПОДКЛЮЧЕНИЕ К MONGODB ======================
 
-// ==================== ЭНДПОИНТЫ (маршруты) ====================
+/**
+ * Получаем строку подключения из .env файла.
+ * Если MONGO_URI не указан — используем локальную базу по умолчанию.
+ */
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/facultyDB';
+
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log('✅ MongoDB успешно подключён');
+  })
+  .catch((err) => {
+    console.error('❌ Ошибка подключения к MongoDB:', err.message);
+  });
+
+// ====================== ЭНДПОИНТЫ ======================
 
 /**
  * POST /api/user/me
- * 
- * Этот маршрут используется при открытии вкладки "Профиль".
- * Он либо создаёт нового пользователя, либо возвращает существующего.
+ * Основной эндпоинт для авторизации пользователя из VK Mini App.
+ * Создаёт пользователя, если его нет, или обновляет время последнего визита.
  */
 app.post('/api/user/me', async (req, res) => {
   try {
@@ -82,9 +77,6 @@ app.post('/api/user/me', async (req, res) => {
       return res.status(400).json({ error: 'vkId является обязательным полем' });
     }
 
-    // findOneAndUpdate с upsert: true — очень удобный паттерн:
-    // если пользователь с таким vkId уже есть — обновляем его,
-    // если нет — создаём нового.
     const user = await User.findOneAndUpdate(
       { vkId },
       {
@@ -92,12 +84,12 @@ app.post('/api/user/me', async (req, res) => {
         firstName,
         lastName,
         photoUrl,
-        lastVisit: new Date(),        // обновляем время последнего входа
+        lastVisit: new Date(),
       },
       { upsert: true, new: true }
     );
 
-    console.log(`👤 Пользователь ${vkId} успешно авторизован`);
+    console.log(`👤 Пользователь ${vkId} авторизован`);
     res.json(user);
 
   } catch (error) {
@@ -108,9 +100,7 @@ app.post('/api/user/me', async (req, res) => {
 
 /**
  * PUT /api/user/update
- * 
- * Обновляет дополнительную информацию о студенте:
- * группу, курс и специальность.
+ * Обновляет дополнительные данные студента (группа, курс, специальность).
  */
 app.put('/api/user/update', async (req, res) => {
   try {
@@ -144,20 +134,18 @@ app.put('/api/user/update', async (req, res) => {
   }
 });
 
-// ==================== ЗАПУСК СЕРВЕРА ====================
-
-const PORT = process.env.PORT || 5000;
+// ====================== ЗАПУСК СЕРВЕРА ======================
 
 /**
- * app.listen() — запускает сервер и начинает прослушивать указанный порт.
- * '0.0.0.0' — позволяет принимать запросы не только с localhost,
- * но и с других устройств в сети (важно для тестирования на телефоне).
+ * PORT берём из .env, если не указан — используем 5000 по умолчанию.
  */
+const PORT = process.env.PORT || 5000;
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Backend сервер успешно запущен`);
   console.log(`📍 Порт: ${PORT}`);
-  console.log(`🌐 Адрес: http://localhost:${PORT}`);
-  console.log(`\n📌 Доступные эндпоинты:`);
+  console.log(`🌐 http://localhost:${PORT}`);
+  console.log(`\nДоступные эндпоинты:`);
   console.log(`   POST → /api/user/me`);
   console.log(`   PUT  → /api/user/update`);
 });
