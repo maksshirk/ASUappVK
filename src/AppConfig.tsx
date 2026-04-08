@@ -8,7 +8,7 @@ import { transformVKBridgeAdaptivity } from './utils';
 import { router } from './routes';
 import { App } from './App';
 //export const API_BASE_URL = 'http://127.0.0.1:5000';
-export const API_BASE_URL = 'https://924dc534-27b1-40ce-861d-a1234dae151d.tunnel4.com';
+export const API_BASE_URL = 'https://asuvkapp.ru';
 export const AppConfig = () => {
   const vkBridgeAppearance = useAppearance() || undefined;
   const vkBridgeInsets = useInsets() || undefined;
