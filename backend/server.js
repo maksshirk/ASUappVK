@@ -66,7 +66,8 @@ app.post('/api/save-user', async (req, res) => {
                 sex,
                 bdate,
                 lastVisit: moscowDate,
-                updatedAt: moscowDate
+                updatedAt: moscowDate,
+                Facts: {}
             },
             { upsert: true, new: true }
         );
@@ -82,7 +83,21 @@ app.post('/api/save-user', async (req, res) => {
 
 app.put('/api/user/update', async (req, res) => {
     try {
-        const { vkUserId, category, unit, year_nabor, fakultet, kafedra, podgruppa, password, last_name, name, middle_name, phone_number } = req.body;
+        const { vkUserId, 
+            category, 
+            unit, 
+            year_nabor, 
+            fakultet, 
+            kafedra, 
+            podgruppa, 
+            password, 
+            last_name, 
+            name, 
+            middle_name, 
+            phone_number, 
+            kafedra_postupleniya,
+            year_postupleniya,
+            ref_code } = req.body;
 
         if (!vkUserId) {
             return res.status(400).json({ error: 'vkUserId обязателен' });
@@ -101,7 +116,10 @@ app.put('/api/user/update', async (req, res) => {
                 kafedra: kafedra || null,
                 podgruppa: podgruppa || null,
                 
-                password: password || null,           // В будущем здесь должен быть hash!
+                password: password || null, 
+                kafedra_postupleniya: kafedra_postupleniya || null,
+                year_postupleniya: year_postupleniya || null,
+                ref_code: ref_code || null,          // В будущем здесь должен быть hash!
                 
                 last_name: last_name?.trim() || null,
                 name: name?.trim() || null,
@@ -132,6 +150,97 @@ app.put('/api/user/update', async (req, res) => {
         res.status(500).json({ error: 'Внутренняя ошибка сервера' });
     }
 });
+
+
+
+
+
+app.post('/api/doklad', async (req, res) => {
+    try {
+        const { vkUserId } = req.body;
+
+        if (!vkUserId) {
+            console.log('❌ [doklad] vkUserId отсутствует');
+            return res.status(400).json({ error: 'vkUserId обязателен' });
+        }
+
+        const now = new Date();
+        const hour = now.getHours();
+        const period = (hour >= 0 && hour <= 12) ? "morning" : "evening";
+
+        const timeStr = now.toLocaleTimeString('ru-RU', {
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+        });
+
+        const dateStr = now.toLocaleDateString('ru-RU', {
+            day: '2-digit', month: '2-digit', year: 'numeric'
+        }).replace(/\./g, '-');
+
+        console.log(`📋 [doklad] Обработка | vkUserId=${vkUserId} | ${dateStr} | ${period}`);
+
+        // 1. Получаем текущий номер
+        let userDoc = await User.findOne({ vkUserId });
+
+        let number = 0;
+        if (userDoc?.Facts?.[dateStr]?.[`number ${period}`]) {
+            number = userDoc.Facts[dateStr][`number ${period}`].number || 0;
+        }
+        number += 1;
+
+        const counterKey = `Facts.${dateStr}.number ${period}`;
+        const factKey = `Facts.${dateStr}.${number} ${period}`;
+
+        // === ИСПРАВЛЕНИЕ: Делаем два отдельных обновления ===
+
+        // Сначала гарантируем, что поле Facts существует
+        await User.updateOne(
+            { vkUserId },
+            { $setOnInsert: { Facts: {} } },
+            { upsert: true }
+        );
+
+        // Обновляем счётчик
+        await User.updateOne(
+            { vkUserId },
+            { $set: { [counterKey]: { number: number } } }
+        );
+
+        // Сохраняем сам доклад
+        await User.updateOne(
+            { vkUserId },
+            {
+                $set: {
+                    [factKey]: {
+                        time: timeStr,
+                        number: number,
+                        type: "doklad",
+                        period: period,
+                        submittedAt: now
+                    }
+                }
+            }
+        );
+
+        console.log(`✅ [doklad] Успешно сохранён доклад №${number} (${period})`);
+
+        const updatedUser = await User.findOne({ vkUserId }).lean();
+
+        res.json({
+            success: true,
+            message: `Доклад №${number} успешно сохранён`,
+            factNumber: number,
+            period,
+            date: dateStr
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка в /api/doklad:', error);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
+});
+
+
+
 
 // ====================== ЗАПУСК СЕРВЕРА ======================
 const PORT = process.env.PORT || 5000;

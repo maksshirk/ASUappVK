@@ -15,6 +15,7 @@ import {
   ModalPage,
   ModalPageHeader,
   PanelHeaderButton,
+  Checkbox
 } from '@vkontakte/vkui';
 
 import { 
@@ -44,12 +45,20 @@ interface UserProfile {
   name?: string;
   middle_name?: string;
   phone_number?: string;
-  group?: string;
-  course?: string;
-  specialty?: string;
+  kafedra_postupleniya?: string;
+  year_postupleniya?: string;
+  ref_code?: string;
+  agreeToDataProcessing: boolean;
+ // Добавляем поле для согласия на обработку данных
 }
 
 export const Profile = () => {
+    // В начале компонента (состояния)
+  const [captchaNum1, setCaptchaNum1] = useState(() => Math.floor(Math.random() * 11) + 5);
+  const [captchaNum2, setCaptchaNum2] = useState(() => Math.floor(Math.random() * 11) + 5);
+
+  // Функция обновления капчи
+
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -69,7 +78,23 @@ export const Profile = () => {
     name: '',
     middle_name: '',
     phone_number: '',
+    kafedra_postupleniya: '',
+    year_postupleniya: '',
+    ref_code: '',
+    captchaAnswer: '',
+    agreeToDataProcessing: false,
   });
+  useEffect(() => {
+    if (activeModal === 'doklad') {
+      refreshCaptcha();
+    }
+  }, [activeModal]);
+
+  const refreshCaptcha = () => {
+    setCaptchaNum1(Math.floor(Math.random() * 11) + 5);
+    setCaptchaNum2(Math.floor(Math.random() * 11) + 5);
+    setFormData(prev => ({ ...prev, captchaAnswer: '' }));
+  };
 
   useEffect(() => {
     loadUserProfile();
@@ -114,6 +139,11 @@ export const Profile = () => {
           name: profile.name || '',
           middle_name: profile.middle_name || '',
           phone_number: profile.phone_number || '',
+          kafedra_postupleniya: profile.kafedra_postupleniya || '',
+          year_postupleniya: profile.year_postupleniya || '',
+          ref_code: profile.ref_code || '',
+          captchaAnswer: '', // Капча не сохраняется, всегда начинается с пустой строки
+          agreeToDataProcessing: profile.agreeToDataProcessing || false, // Добавляем поле для согласия на обработку данных
         });
       }
     } catch (error) {
@@ -123,7 +153,9 @@ export const Profile = () => {
     }
   };
 
-  const openModal = () => setActiveModal('register');
+  const openModal_register = () => setActiveModal('register');
+  const openModal_doklad = () => setActiveModal('doklad');
+
   const closeModal = () => setActiveModal(null);
 
   const handleSave = async () => {
@@ -143,10 +175,14 @@ export const Profile = () => {
           kafedra: formData.kafedra || null,
           podgruppa: formData.podgruppa || null,
           password: formData.password || null,
+          kafedra_postupleniya: formData.kafedra_postupleniya || null,
+          year_postupleniya: formData.year_postupleniya || null,
+          ref_code: formData.ref_code || null,
           last_name: formData.last_name?.trim() || null,
           name: formData.name?.trim() || null,
           middle_name: formData.middle_name?.trim() || null,
           phone_number: formData.phone_number?.trim() || null,
+          agreeToDataProcessing: formData.agreeToDataProcessing,
         }),
       });
 
@@ -161,6 +197,49 @@ export const Profile = () => {
     } catch (err) {
       console.error(err);
       showSnackbar('Не удалось сохранить данные', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+const handleSave_doklad = async () => {
+    // Проверка капчи
+    if (!formData.captchaAnswer || parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2) {
+      showSnackbar('Неверный ответ на проверку!', 'error');
+      refreshCaptcha();
+      return;
+    }
+
+    // Проверка согласия
+    if (!formData.agreeToDataProcessing) {
+      showSnackbar('Необходимо дать согласие на обработку данных', 'error');
+      return;
+    }
+
+    if (!user) return;
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/doklad`, {  // ← поменяй эндпоинт при необходимости
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vkUserId: user.vkUserId,
+        }),
+      });
+
+      if (response.ok) {
+        showSnackbar('Доклад успешно отправлен!', 'success');
+        closeModal();
+        // Можно сбросить форму
+        setFormData(prev => ({ ...prev, captchaAnswer: '', agreeToDataProcessing: false }));
+      } else {
+        throw new Error('Ошибка отправки');
+      }
+    } catch (err) {
+      console.error(err);
+      showSnackbar('Не удалось отправить доклад', 'error');
     } finally {
       setSaving(false);
     }
@@ -208,10 +287,23 @@ export const Profile = () => {
             size="l" 
             stretched 
             mode="primary" 
-            onClick={openModal}
+            onClick={openModal_register}
           >
-            {user?.category ? 'Редактировать профиль' : 'Зарегистрироваться'}
+            {user?.category ? 'Редактировать профиль' : 'Заполнить профиль (для связи с Вами)'}
           </Button>
+        </Box>
+
+        <Box padding="0 16px 16px">
+          {user?.category === 'Курсант' && (
+            <Button 
+              size="l" 
+              stretched 
+              mode="primary" 
+              onClick={openModal_doklad}
+            >
+              Доклад о состоянии дел
+            </Button>
+          )}
         </Box>
       </Group>
 
@@ -345,17 +437,6 @@ export const Profile = () => {
             </FormItem>
           )}
 
-          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры' || formData.category === 'Представитель факультета') && (
-            <FormItem top="Пароль">
-              <Input
-                placeholder="Введите пароль"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                maxLength={10}
-                  // Добавь свои группы
-              />
-            </FormItem>
-          )}
 
           <FormItem top="Фамилия">
             <Input
@@ -392,7 +473,85 @@ export const Profile = () => {
             />
           </FormItem>
 
-<Box 
+          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры' || formData.category === 'Представитель факультета') && (
+            <FormItem top="Пароль">
+              <Input
+                placeholder="Введите пароль"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                maxLength={10}
+                  // Добавь свои группы
+              />
+            </FormItem>
+          )}
+
+          {formData.category === 'Абитуриент (поступающий)' && (
+            <FormItem top="Год поступления">
+              <Select
+                placeholder="Выберите год поступления"
+                value={formData.year_postupleniya}
+                onChange={(e) => setFormData({ ...formData, year_postupleniya: e.target.value })}
+                                options={[
+                  { value: '2026', label: '2026' },
+                  { value: '2027', label: '2027' },
+                  { value: '2028', label: '2028' },
+                  { value: '2029', label: '2029' },
+                  { value: '2030', label: '2030' },
+                  { value: 'Пока неизвестно', label: 'Пока неизвестно' }
+                  // Добавь свои группы
+                ]}
+              />
+            </FormItem>
+          )}
+
+          {formData.category === 'Абитуриент (поступающий)' && (
+            <FormItem top="Кафедра поступления">
+              <Select
+                placeholder="Выберите кафедру, на которую планируешь поступить"
+                value={formData.kafedra_postupleniya}
+                onChange={(e) => setFormData({ ...formData, kafedra_postupleniya: e.target.value })}
+                                options={[
+                  { value: '1', label: 'Автоматизированных систем управления Космических войск' },
+                  { value: '3', label: 'Автоматизации обработки и анализа информации космических средств' },
+                  { value: '4', label: 'Автоматизированных систем управления космических комплексов' },
+                  { value: '5', label: 'Автоматизированных систем ракетно-космической обороны' },
+                  { value: '6', label: 'Метрологического обеспечения вооружения, военной и специальной техники' },
+                  { value: 'Пока неизвестно', label: 'Пока неизвестно' }
+                  // Добавь свои группы
+                ]}
+              />
+            </FormItem>
+          )}
+
+          {formData.category === 'Абитуриент (поступающий)' && (
+            <FormItem top="Реферальный код (если есть)">
+              <Input
+                placeholder="Введите реферальный код (пригласительный код). При его наличии мы сможем связать Вас с пригласившим Вас курсантами и быстрее помочь с вопросами, связанными с поступлением."
+                value={formData.ref_code}
+                onChange={(e) => setFormData({ ...formData, ref_code: e.target.value })}
+                maxLength={10}
+                  // Добавь свои группы
+              />
+            </FormItem>
+          )}
+
+          <FormItem>
+            <Checkbox
+              checked={formData.agreeToDataProcessing}
+              onChange={(e) => 
+                setFormData({ 
+                  ...formData, 
+                  agreeToDataProcessing: e.target.checked 
+                })
+              }
+            >
+              Я даю согласие на обработку моих персональных данных в соответствии с 
+              <Text weight="2" style={{ color: 'var(--vkui--color_text_link)' }}>
+                Федеральным законом № 152-ФЗ «О персональных данных»
+              </Text>
+            </Checkbox>
+          </FormItem>
+          <Box 
             style={{
               position: 'sticky',
               bottom: 0,
@@ -406,11 +565,105 @@ export const Profile = () => {
               stretched 
               onClick={handleSave} 
               loading={saving}
+              disabled={!formData.agreeToDataProcessing}
               mode="primary"
             >
               Сохранить данные
             </Button>
           </Box>
+        </Box>
+      </ModalPage>
+
+
+      <ModalPage
+        id="doklad"
+        header={
+          <ModalPageHeader
+            left={
+              <PanelHeaderButton onClick={closeModal}>
+                <Icon24Cancel />
+              </PanelHeaderButton>
+            }
+          >
+            Доклад о состоянии дел
+          </ModalPageHeader>
+        }
+        open={activeModal === 'doklad'}
+        onClose={closeModal}
+        settlingHeight={85}
+      >
+        <Box padding="16px 16px 100px">
+
+          {/* Комбинированная проверка */}
+          <FormItem top="Проверка на человечность 🤖">
+            <Box style={{ padding: '12px 0 8px' }}>
+              <Text weight="2" style={{ marginBottom: 12, fontSize: 17 }}>
+                Сколько будет <b>{captchaNum1} + {captchaNum2}</b> ?
+              </Text>
+
+              <Input
+                placeholder="Введите ответ"
+                value={formData.captchaAnswer}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  captchaAnswer: e.target.value.trim() 
+                })}
+                type="number"
+                maxLength={3}
+                status={
+                  formData.captchaAnswer && 
+                  parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2 
+                    ? "error" 
+                    : undefined
+                }
+              />
+            </Box>
+          </FormItem>
+
+          {/* Согласие на обработку данных */}
+          <FormItem>
+            <Checkbox
+              checked={formData.agreeToDataProcessing}
+              onChange={(e) => 
+                setFormData({ 
+                  ...formData, 
+                  agreeToDataProcessing: e.target.checked 
+                })
+              }
+            >
+              Я даю согласие на обработку моих персональных данных в соответствии с{' '}
+              <Text weight="2" style={{ color: 'var(--vkui--color_text_link)' }}>
+                Федеральным законом № 152-ФЗ «О персональных данных»
+              </Text>
+            </Checkbox>
+          </FormItem>
+
+          {/* Кнопка отправки */}
+          <Box 
+            style={{
+              position: 'sticky',
+              bottom: 0,
+              background: 'var(--vkui--color_background_content)',
+              padding: '16px 0 40px',
+              marginTop: 24,
+            }}
+          >
+            <Button 
+              size="l" 
+              stretched 
+              onClick={handleSave_doklad} 
+              loading={saving}
+              disabled={
+                !formData.agreeToDataProcessing || 
+                !formData.captchaAnswer || 
+                parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2
+              }
+              mode="primary"
+            >
+              Отправить доклад
+            </Button>
+          </Box>
+
         </Box>
       </ModalPage>
     </Panel>

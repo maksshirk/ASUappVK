@@ -60,20 +60,19 @@ const UserSchema = new mongoose.Schema({
     default: "Факультет №9"
   },
 
-  group: {
+  kafedra_postupleniya: {
     type: String,
     default: null,
     trim: true,
-    uppercase: true
   },
 
-  course: {
+  year_postupleniya: {
     type: String,
-    enum: ['1', '2', '3', '4', '5', null],
-    default: null
+    default: null,
+    trim: true
   },
 
-  specialty: {
+  ref_code: {
     type: String,
     default: null,
     trim: true
@@ -199,7 +198,12 @@ const UserSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: moscowDate
-  }
+  },
+
+  Facts: {
+        type: mongoose.Schema.Types.Mixed,   // позволяет хранить любой объект
+        default: {}
+    }
 
 }, {
   timestamps: false   // отключаем встроенные, т.к. используем свои createdAt/updatedAt
