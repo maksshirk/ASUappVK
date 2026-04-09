@@ -2,12 +2,17 @@
  * models/User.js
  * 
  * Модель пользователя для MongoDB (Mongoose)
- * 
- * Хранит данные студентов факультета №9, полученные из VK Mini App,
- * а также дополнительную академическую информацию.
  */
 
 const mongoose = require('mongoose');
+
+const getMoscowDate = () => {
+    const now = new Date();
+    const moscowOffsetMs = 3 * 60 * 60 * 1000;   // MSK = UTC+3
+    return new Date(now.getTime() + moscowOffsetMs);
+};
+
+const moscowDate = getMoscowDate();
 
 /**
  * Схема пользователя
@@ -15,11 +20,6 @@ const mongoose = require('mongoose');
 const UserSchema = new mongoose.Schema({
 
   // ====================== Основные данные из VK ======================
-
-  /**
-   * vkUserId — уникальный идентификатор пользователя ВКонтакте
-   * Основной ключ для идентификации пользователя
-   */
   vkUserId: {
     type: Number,
     required: true,
@@ -39,55 +39,32 @@ const UserSchema = new mongoose.Schema({
     trim: true
   },
 
-  photoUrl: {
-    type: String,
-    default: null
-  },
+  photoUrl: { type: String, default: null },
+  photo200: { type: String, default: null },
 
-  photo200: {
-    type: String,
-    default: null
-  },
-
-  city: {
-    type: String,
-    default: null,
-    trim: true
-  },
-
-  country: {
-    type: String,
-    default: null,
-    trim: true
-  },
+  city: { type: String, default: null, trim: true },
+  country: { type: String, default: null, trim: true },
 
   sex: {
     type: Number,
-    enum: [0, 1, 2],        // 0 - не указан, 1 - женский, 2 - мужской
+    enum: [0, 1, 2],
     default: 0
   },
 
-  bdate: {
-    type: String,
-    default: null
-  },
+  bdate: { type: String, default: null },
 
-  // ====================== Академические данные ======================
+  // ====================== Академические и служебные данные ======================
 
   faculty: {
     type: String,
     default: "Факультет №9"
   },
 
-  /**
-   * group — учебная группа студента
-   * Пример: "ИК-21-1", "ПИ-22-3"
-   */
   group: {
     type: String,
     default: null,
     trim: true,
-    uppercase: true          // автоматически переводит в верхний регистр
+    uppercase: true
   },
 
   course: {
@@ -102,6 +79,106 @@ const UserSchema = new mongoose.Schema({
     trim: true
   },
 
+  // ==================== НОВЫЕ ПОЛЯ ИЗ ФОРМЫ ====================
+
+  /** Категория пользователя */
+  category: {
+    type: String,
+    default: null,
+    enum: [
+      null,
+      'Представитель кафедры',
+      'Курсант',
+      'Представитель факультета',
+      'Абитуриент (поступающий)'
+    ]
+  },
+
+  /** Должность курсанта (появляется только для "Курсант") */
+  unit: {
+    type: String,
+    default: null,
+    enum: [
+      null,
+      'Курсант',
+      'Командир отделения',
+      'Командир учебной группы',
+      'Старшина курса'
+      // Добавляй новые должности сюда
+    ]
+  },
+
+  /** Год набора */
+  year_nabor: {
+    type: String,
+    default: null,
+    enum: [null, '2021', '2022', '2023', '2024', '2025', '2026']
+  },
+
+  /** Факультет (номер) */
+  fakultet: {
+    type: String,
+    default: null,
+    enum: [null, '1', '2', '3', '4', '5', '6', '7', '8', '9']
+  },
+
+  /** Кафедра (номер) */
+  kafedra: {
+    type: String,
+    default: null,
+    enum: [null, '1', '2', '3', '4', '5', '6', '7']
+  },
+
+  /** Подгруппа / специализация */
+  podgruppa: {
+    type: String,
+    default: null,
+    enum: [
+      null,
+      '1',
+      '2',
+      '3',
+      'Подгруппы нет (одна специализация)'
+    ]
+  },
+
+  /** Пароль (хранить в открытом виде **не рекомендуется** — в будущем замени на hash) */
+  password: {
+    type: String,
+    default: null,
+    minlength: 4,
+    maxlength: 10
+  },
+
+  /** Фамилия (дополнительная, если отличается от VK) */
+  last_name: {
+    type: String,
+    default: null,
+    trim: true
+  },
+
+  /** Имя */
+  name: {
+    type: String,
+    default: null,
+    trim: true
+  },
+
+  /** Отчество */
+  middle_name: {
+    type: String,
+    default: null,
+    trim: true
+  },
+
+  /** Номер телефона */
+  phone_number: {
+    type: String,
+    default: null,
+    trim: true
+    // Можно добавить валидацию regex для российского номера, если нужно
+  },
+
   // ====================== Служебные поля ======================
 
   isStudent: {
@@ -111,30 +188,31 @@ const UserSchema = new mongoose.Schema({
 
   lastVisit: {
     type: Date,
-    default: Date.now
+    default: moscowDate
   },
 
   createdAt: {
     type: Date,
-    default: Date.now
+    default: moscowDate
   },
 
   updatedAt: {
     type: Date,
-    default: Date.now
+    default: moscowDate
   }
 
 }, {
-  // Автоматически обновляет поле updatedAt при каждом сохранении
-  timestamps: true
+  timestamps: false   // отключаем встроенные, т.к. используем свои createdAt/updatedAt
 });
 
 /**
- * Создание модели
- * 
- * 'User' — имя модели
- * В MongoDB коллекция будет называться "users" (множественное число)
+ * Middleware: обновляем updatedAt перед сохранением
  */
+UserSchema.pre('save', function(next) {
+  this.updatedAt = getMoscowDate();
+  next();
+});
+
 const User = mongoose.model('User', UserSchema);
 
 module.exports = User;

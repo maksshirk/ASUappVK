@@ -23,6 +23,12 @@ import { Departments } from './panels/Departments.tsx';
 import { Links } from './panels/Links.tsx';
 import { Profile } from './panels/Profile.tsx';
 import { API_BASE_URL } from './AppConfig.tsx';
+import { SnackbarProvider } from './contexts/SnackbarContext';
+const globalStyles = `
+  .vkuiSnackbar {
+    z-index: 9999 !important;   /* или 10000 */
+  }
+`;
 export const App = () => {
   const [activeStory, setActiveStory] = useState('faculty');
 
@@ -67,7 +73,7 @@ export const App = () => {
   };
 
   return (
-    
+    <SnackbarProvider>
     <SplitLayout>
       <SplitCol>
         <Epic
@@ -142,5 +148,6 @@ export const App = () => {
         </Epic>
       </SplitCol>
     </SplitLayout>
+    </SnackbarProvider>
   );
 };
