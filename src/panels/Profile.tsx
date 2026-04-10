@@ -27,6 +27,10 @@ import bridge from '@vkontakte/vk-bridge';
 import { API_BASE_URL } from '../AppConfig';
 import { useSnackbar } from '../contexts/SnackbarContext';
 
+import { RegisterModal } from '../components/modals/RegisterModal';
+import { DokladModal } from '../components/modals/DokladModal';
+import { StatusModal } from '../components/modals/StatusModal';
+
 interface UserProfile {
   vkUserId: number;
   firstName: string;
@@ -43,6 +47,7 @@ interface UserProfile {
   password?: string;
   last_name?: string;
   name?: string;
+  status?: string;
   middle_name?: string;
   phone_number?: string;
   kafedra_postupleniya?: string;
@@ -81,6 +86,7 @@ export const Profile = () => {
     kafedra_postupleniya: '',
     year_postupleniya: '',
     ref_code: '',
+    status: '',
     captchaAnswer: '',
     agreeToDataProcessing: false,
   });
@@ -137,6 +143,7 @@ export const Profile = () => {
           password: profile.password || '',
           last_name: profile.last_name || '',
           name: profile.name || '',
+          status: profile.status || '',
           middle_name: profile.middle_name || '',
           phone_number: profile.phone_number || '',
           kafedra_postupleniya: profile.kafedra_postupleniya || '',
@@ -155,6 +162,7 @@ export const Profile = () => {
 
   const openModal_register = () => setActiveModal('register');
   const openModal_doklad = () => setActiveModal('doklad');
+  const openModal_status = () => setActiveModal('status');
 
   const closeModal = () => setActiveModal(null);
 
@@ -177,6 +185,7 @@ export const Profile = () => {
           password: formData.password || null,
           kafedra_postupleniya: formData.kafedra_postupleniya || null,
           year_postupleniya: formData.year_postupleniya || null,
+          status: formData.status || null,
           ref_code: formData.ref_code || null,
           last_name: formData.last_name?.trim() || null,
           name: formData.name?.trim() || null,
@@ -202,7 +211,7 @@ export const Profile = () => {
     }
   };
 
-const handleSave_doklad = async () => {
+  const handleSave_doklad = async () => {
     // Проверка капчи
     if (!formData.captchaAnswer || parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2) {
       showSnackbar('Неверный ответ на проверку!', 'error');
@@ -240,6 +249,60 @@ const handleSave_doklad = async () => {
     } catch (err) {
       console.error(err);
       showSnackbar('Не удалось отправить доклад', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave_status = async () => {
+    // Проверка согласия
+    if (!formData.agreeToDataProcessing) {
+      showSnackbar('Необходимо дать согласие на обработку данных', 'error');
+      return;
+    }
+
+    // Проверка, что статус действительно выбран и отличается от текущего (по желанию)
+    if (!formData.status || formData.status === user?.status) {
+      showSnackbar('Выберите новый статус', 'error');
+      return;
+    }
+
+    if (!user) return;
+
+    setSaving(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vkUserId: user.vkUserId,
+          status: formData.status,        // ← берём из formData, а не из user
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        showSnackbar('Статус успешно обновлён!', 'success');
+        closeModal();
+
+        // Обновляем локальное состояние пользователя
+        setUser(prev => prev ? { ...prev, status: formData.status } : null);
+
+        // Сброс формы
+        setFormData(prev => ({ 
+          ...prev, 
+          agreeToDataProcessing: false,
+          status: ''   // если нужно сбросить
+        }));
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Ошибка сервера');
+      }
+    } catch (err) {
+      console.error('Ошибка обновления статуса:', err);
+      showSnackbar('Не удалось обновить статус', 'error');
     } finally {
       setSaving(false);
     }
@@ -305,367 +368,53 @@ const handleSave_doklad = async () => {
             </Button>
           )}
         </Box>
+
+        <Box padding="0 16px 16px">
+          {user?.category === 'Курсант' && (
+            <Button 
+              size="l" 
+              stretched 
+              mode="primary" 
+              onClick={openModal_status}
+            >
+              Изменить статус
+            </Button>
+          )}
+        </Box>
       </Group>
 
-      {/* Модальное окно */}
-      <ModalPage
-        id="register"
-        header={
-          <ModalPageHeader
-            left={
-              <PanelHeaderButton onClick={closeModal}>
-                <Icon24Cancel />
-              </PanelHeaderButton>
-            }
-          >
-            Заполнение профиля
-          </ModalPageHeader>
-        }
+      {/* Модальные окна */}
+      <RegisterModal
         open={activeModal === 'register'}
         onClose={closeModal}
-        settlingHeight={85}
-      >
-        <Box padding="16px 16px 100px">   {/* ← увеличенный отступ снизу */}
-          {/* Все FormItem остаются без изменений */}
-          <FormItem top="Категория">
-            <Select
-              placeholder="Выберите категорию"
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              options={[
-                { value: 'Представитель кафедры', label: 'Представитель кафедры' },
-                { value: 'Курсант', label: 'Курсант' },
-                { value: 'Представитель факультета', label: 'Представитель факультета' },
-                { value: 'Абитуриент (поступающий)', label: 'Абитуриент (поступающий)' }
-                // Добавь свои группы
-              ]}
-            />
-          </FormItem>
+        formData={formData}
+        setFormData={setFormData}
+        onSave={handleSave}
+        saving={saving}
+        user={user}
+      />
 
-          {formData.category === 'Курсант' && (
-            <FormItem top="Должность курсанта">
-              <Select
-                placeholder="Выберите должность"
-                value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
-                                options={[
-                  { value: 'Курсант', label: 'Курсант' },
-                  { value: 'Командир отделения', label: 'Командир отделения' },
-                  { value: 'Командир учебной группы', label: 'Командир учебной группы' },
-                  { value: 'Старшина курса', label: 'Старшина курса' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-          
-          {formData.category === 'Курсант' && (
-            <FormItem top="Год набора">
-              <Select
-                placeholder="Выберите год набора"
-                value={formData.year_nabor}
-                onChange={(e) => setFormData({ ...formData, year_nabor: e.target.value })}
-                                options={[
-                  { value: '2021', label: '2021' },
-                  { value: '2022', label: '2022' },
-                  { value: '2023', label: '2023' },
-                  { value: '2024', label: '2024' },
-                  { value: '2025', label: '2025' },
-                  { value: '2026', label: '2026' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры' || formData.category === 'Представитель факультета') && (
-            <FormItem top="Факультет">
-              <Select
-                placeholder="Выберите факультет"
-                value={formData.fakultet}
-                onChange={(e) => setFormData({ ...formData, fakultet: e.target.value })}
-                                options={[
-                  { value: '1', label: '1' },
-                  { value: '2', label: '2' },
-                  { value: '3', label: '3' },
-                  { value: '4', label: '4' },
-                  { value: '5', label: '5' },
-                  { value: '6', label: '6' },
-                  { value: '7', label: '7' },
-                  { value: '8', label: '8' },
-                  { value: '9', label: '9' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры') && (
-            <FormItem top="Кафедра">
-              <Select
-                placeholder="Выберите кафедру"
-                value={formData.kafedra}
-                onChange={(e) => setFormData({ ...formData, kafedra: e.target.value })}
-                                options={[
-                  { value: '1', label: '1' },
-                  { value: '2', label: '2' },
-                  { value: '3', label: '3' },
-                  { value: '4', label: '4' },
-                  { value: '5', label: '5' },
-                  { value: '6', label: '6' },
-                  { value: '7', label: '7' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры') && (
-            <FormItem top="Подгруппа">
-              <Select
-                placeholder="Выберите подгруппу (специализацию)"
-                value={formData.podgruppa}
-                onChange={(e) => setFormData({ ...formData, podgruppa: e.target.value })}
-                                options={[
-                  { value: '1', label: '/1' },
-                  { value: '2', label: '/2' },
-                  { value: '3', label: '/3' },
-                  { value: 'Подгруппы нет (одна специализация)', label: 'Подгруппы нет (одна специализация)' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-
-          <FormItem top="Фамилия">
-            <Input
-              placeholder="Введите фамилию"
-              value={formData.last_name}
-              onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                // Добавь свои группы
-            />
-          </FormItem>
-          <FormItem top="Имя">
-            <Input
-              placeholder="Введите имя"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                // Добавь свои группы
-            />
-          </FormItem>
-
-          <FormItem top="Отчество">
-            <Input
-              placeholder="Введите отчество"
-              value={formData.middle_name}
-              onChange={(e) => setFormData({ ...formData, middle_name: e.target.value })}
-                // Добавь свои группы
-            />
-          </FormItem>
-
-          <FormItem top="Номер телефона">
-            <Input
-              placeholder="Введите номер телефона"
-              value={formData.phone_number}
-              onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
-                // Добавь свои группы
-            />
-          </FormItem>
-
-          {(formData.category === 'Курсант' || formData.category === 'Представитель кафедры' || formData.category === 'Представитель факультета') && (
-            <FormItem top="Пароль">
-              <Input
-                placeholder="Введите пароль"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                maxLength={10}
-                  // Добавь свои группы
-              />
-            </FormItem>
-          )}
-
-          {formData.category === 'Абитуриент (поступающий)' && (
-            <FormItem top="Год поступления">
-              <Select
-                placeholder="Выберите год поступления"
-                value={formData.year_postupleniya}
-                onChange={(e) => setFormData({ ...formData, year_postupleniya: e.target.value })}
-                                options={[
-                  { value: '2026', label: '2026' },
-                  { value: '2027', label: '2027' },
-                  { value: '2028', label: '2028' },
-                  { value: '2029', label: '2029' },
-                  { value: '2030', label: '2030' },
-                  { value: 'Пока неизвестно', label: 'Пока неизвестно' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-          {formData.category === 'Абитуриент (поступающий)' && (
-            <FormItem top="Кафедра поступления">
-              <Select
-                placeholder="Выберите кафедру, на которую планируешь поступить"
-                value={formData.kafedra_postupleniya}
-                onChange={(e) => setFormData({ ...formData, kafedra_postupleniya: e.target.value })}
-                                options={[
-                  { value: '1', label: 'Автоматизированных систем управления Космических войск' },
-                  { value: '3', label: 'Автоматизации обработки и анализа информации космических средств' },
-                  { value: '4', label: 'Автоматизированных систем управления космических комплексов' },
-                  { value: '5', label: 'Автоматизированных систем ракетно-космической обороны' },
-                  { value: '6', label: 'Метрологического обеспечения вооружения, военной и специальной техники' },
-                  { value: 'Пока неизвестно', label: 'Пока неизвестно' }
-                  // Добавь свои группы
-                ]}
-              />
-            </FormItem>
-          )}
-
-          {formData.category === 'Абитуриент (поступающий)' && (
-            <FormItem top="Реферальный код (если есть)">
-              <Input
-                placeholder="Введите реферальный код (пригласительный код). При его наличии мы сможем связать Вас с пригласившим Вас курсантами и быстрее помочь с вопросами, связанными с поступлением."
-                value={formData.ref_code}
-                onChange={(e) => setFormData({ ...formData, ref_code: e.target.value })}
-                maxLength={10}
-                  // Добавь свои группы
-              />
-            </FormItem>
-          )}
-
-          <FormItem>
-            <Checkbox
-              checked={formData.agreeToDataProcessing}
-              onChange={(e) => 
-                setFormData({ 
-                  ...formData, 
-                  agreeToDataProcessing: e.target.checked 
-                })
-              }
-            >
-              Я даю согласие на обработку моих персональных данных в соответствии с 
-              <Text weight="2" style={{ color: 'var(--vkui--color_text_link)' }}>
-                Федеральным законом № 152-ФЗ «О персональных данных»
-              </Text>
-            </Checkbox>
-          </FormItem>
-          <Box 
-            style={{
-              position: 'sticky',
-              bottom: 0,
-              background: 'var(--vkui--color_background_content)',
-              padding: '16px 0 40px',
-              marginTop: 32,
-            }}
-          >
-            <Button 
-              size="l" 
-              stretched 
-              onClick={handleSave} 
-              loading={saving}
-              disabled={!formData.agreeToDataProcessing}
-              mode="primary"
-            >
-              Сохранить данные
-            </Button>
-          </Box>
-        </Box>
-      </ModalPage>
-
-
-      <ModalPage
-        id="doklad"
-        header={
-          <ModalPageHeader
-            left={
-              <PanelHeaderButton onClick={closeModal}>
-                <Icon24Cancel />
-              </PanelHeaderButton>
-            }
-          >
-            Доклад о состоянии дел
-          </ModalPageHeader>
-        }
+      <DokladModal
         open={activeModal === 'doklad'}
         onClose={closeModal}
-        settlingHeight={85}
-      >
-        <Box padding="16px 16px 100px">
+        formData={formData}
+        setFormData={setFormData}
+        onSave={handleSave_doklad}
+        saving={saving}
+        captchaNum1={captchaNum1}
+        captchaNum2={captchaNum2}
+        refreshCaptcha={refreshCaptcha}
+      />
 
-          {/* Комбинированная проверка */}
-          <FormItem top="Проверка на человечность 🤖">
-            <Box style={{ padding: '12px 0 8px' }}>
-              <Text weight="2" style={{ marginBottom: 12, fontSize: 17 }}>
-                Сколько будет <b>{captchaNum1} + {captchaNum2}</b> ?
-              </Text>
-
-              <Input
-                placeholder="Введите ответ"
-                value={formData.captchaAnswer}
-                onChange={(e) => setFormData({ 
-                  ...formData, 
-                  captchaAnswer: e.target.value.trim() 
-                })}
-                type="number"
-                maxLength={3}
-                status={
-                  formData.captchaAnswer && 
-                  parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2 
-                    ? "error" 
-                    : undefined
-                }
-              />
-            </Box>
-          </FormItem>
-
-          {/* Согласие на обработку данных */}
-          <FormItem>
-            <Checkbox
-              checked={formData.agreeToDataProcessing}
-              onChange={(e) => 
-                setFormData({ 
-                  ...formData, 
-                  agreeToDataProcessing: e.target.checked 
-                })
-              }
-            >
-              Я даю согласие на обработку моих персональных данных в соответствии с{' '}
-              <Text weight="2" style={{ color: 'var(--vkui--color_text_link)' }}>
-                Федеральным законом № 152-ФЗ «О персональных данных»
-              </Text>
-            </Checkbox>
-          </FormItem>
-
-          {/* Кнопка отправки */}
-          <Box 
-            style={{
-              position: 'sticky',
-              bottom: 0,
-              background: 'var(--vkui--color_background_content)',
-              padding: '16px 0 40px',
-              marginTop: 24,
-            }}
-          >
-            <Button 
-              size="l" 
-              stretched 
-              onClick={handleSave_doklad} 
-              loading={saving}
-              disabled={
-                !formData.agreeToDataProcessing || 
-                !formData.captchaAnswer || 
-                parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2
-              }
-              mode="primary"
-            >
-              Отправить доклад
-            </Button>
-          </Box>
-
-        </Box>
-      </ModalPage>
+      <StatusModal
+        open={activeModal === 'status'}
+        onClose={closeModal}
+        formData={formData}
+        setFormData={setFormData}
+        onSave={handleSave_status}
+        saving={saving}
+        user={user}
+      />
     </Panel>
   );
 };

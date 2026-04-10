@@ -103,6 +103,23 @@ app.put('/api/user/update', async (req, res) => {
             return res.status(400).json({ error: 'vkUserId обязателен' });
         }
 
+        // === Формирование user_group ===
+        const fakultetNum = Number(fakultet);
+        const yearNum = Number(year_nabor);
+        const kafedraNum = Number(kafedra);
+
+        if ([fakultetNum, yearNum, kafedraNum].some(isNaN)) {
+            return res.status(400).json({ error: 'fakultet, year_nabor и kafedra должны быть числами' });
+        }
+        let user_group;
+        if (podgruppa !== 'Подгруппы нет (одна специализация)') {
+            user_group = `${fakultetNum * 100 + (yearNum % 10) * 10 + kafedraNum}-${podgruppa || ''}`;
+        }
+        else {            
+            user_group = `${fakultetNum * 100 + (yearNum % 10) * 10 + kafedraNum}`;
+        }
+        // =================================
+
         const moscowDate = getMoscowDate();
 
         const user = await User.findOneAndUpdate(
@@ -115,7 +132,7 @@ app.put('/api/user/update', async (req, res) => {
                 fakultet: fakultet || null,
                 kafedra: kafedra || null,
                 podgruppa: podgruppa || null,
-                
+                user_group: user_group || null,
                 password: password || null, 
                 kafedra_postupleniya: kafedra_postupleniya || null,
                 year_postupleniya: year_postupleniya || null,
@@ -240,6 +257,40 @@ app.post('/api/doklad', async (req, res) => {
 });
 
 
+app.post('/api/status', async (req, res) => {
+    try {
+        const { vkUserId, status } = req.body;
+
+        if (!vkUserId) {
+            return res.status(400).json({ error: 'vkUserId обязателен' });
+        }
+
+        if (!status) {
+            return res.status(400).json({ error: 'status обязателен' });
+        }
+
+        const result = await User.updateOne(
+            { vkUserId },
+            { $set: { status: status } }   // ← так правильно
+        );
+
+        console.log(`✅ Статус обновлён | vkUserId=${vkUserId} | status=${status} | matched=${result.matchedCount}, modified=${result.modifiedCount}`);
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: 'Пользователь не найден' });
+        }
+
+        res.json({
+            success: true,
+            message: `Статус успешно изменён на "${status}"`,
+            modified: result.modifiedCount > 0
+        });
+
+    } catch (error) {
+        console.error('❌ Ошибка в /api/status:', error);
+        res.status(500).json({ error: 'Внутренняя ошибка сервера' });
+    }
+});
 
 
 // ====================== ЗАПУСК СЕРВЕРА ======================
