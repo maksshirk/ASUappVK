@@ -30,6 +30,9 @@ import Info_Kafedra_95_1 from '../assets/Info_Kafedra_95_1.jpg';
 import Info_Kafedra_95_2 from '../assets/Info_Kafedra_95_2.jpg';
 import Info_Kafedra_96 from '../assets/Info_Kafedra_96.jpg';
 
+
+import SpecialistTelemetryAI from '../assets/Kafedra_93';
+
 const departments = [
   {
     id: 1,
@@ -46,6 +49,7 @@ const departments = [
     img: Kafedra_93,
     infoImages: [Info_Kafedra_93_1, Info_Kafedra_93_2, Info_Kafedra_93_3],
     description: "Компьютерные технологии анализа информации ракет-носителей и космических аппаратов",
+    full_description: <SpecialistTelemetryAI />
   },
   {
     id: 3,
@@ -127,7 +131,7 @@ export const Departments = () => {
             <Text style={{ lineHeight: 1.6, marginBottom: 24 }}>
               {selectedDept.description}
             </Text>
-
+            {selectedDept.full_description}
             {/* Галерея изображений */}
             <Box style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               {selectedDept.infoImages.map((img, index) => (

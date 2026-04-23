@@ -30,7 +30,7 @@ const globalStyles = `
   }
 `;
 export const App = () => {
-  const [activeStory, setActiveStory] = useState('faculty');
+  const [activeStory, setActiveStory] = useState('profile');
 
   useEffect(() => {
     const saveUserToDB = async () => {

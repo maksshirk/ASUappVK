@@ -26,7 +26,7 @@ interface RegisterModalProps {
 
 // ==================== ПАРОЛИ ДЛЯ КАЖДОЙ ДОЛЖНОСТИ ====================
 const PASSWORD_MAP: Record<string, string> = {
-  'Командир 1 отделения': 'Dasha27082018!',
+  'Командир 1 отделения': 'Kom1Otd2026!',
   'Командир 2 отделения': 'Kom2Otd2026!',
   'Командир 3 отделения': 'Kom3Otd2026!',
   'Командир учебной группы': 'KomUchebGr2026',
@@ -55,7 +55,7 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
 
   // Проверка пароля в реальном времени
   useEffect(() => {
-    if (!formData.password || !correctPassword) {
+    if (!shouldShowPasswordField || !formData.password) {
       setPasswordStatus('idle');
       return;
     }
@@ -67,12 +67,12 @@ export const RegisterModal: React.FC<RegisterModalProps> = ({
     } else {
       setPasswordStatus('idle');
     }
-  }, [formData.password, correctPassword]);
+  }, [formData.password, correctPassword, shouldShowPasswordField]);
 
-  // Можно ли сохранить форму
+  // ==================== НОВАЯ ЛОГИКА КНОПКИ ====================
   const canSubmit = 
     formData.agreeToDataProcessing && 
-    passwordStatus === 'correct';
+    (!shouldShowPasswordField || passwordStatus === 'correct');
   return (
     
     

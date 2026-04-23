@@ -8,19 +8,13 @@ import {
   Box,
   Button,
   Avatar,
-  FormItem,
-  Input,
-  Select,
   ScreenSpinner,
-  ModalPage,
-  ModalPageHeader,
-  PanelHeaderButton,
-  Checkbox
 } from '@vkontakte/vkui';
 
 import { 
   Icon28UserCircleOutline, 
-  Icon24Cancel 
+  Icon24Cancel,
+  Icon28Users 
 } from '@vkontakte/icons';
 
 import bridge from '@vkontakte/vk-bridge';
@@ -30,6 +24,8 @@ import { useSnackbar } from '../contexts/SnackbarContext';
 import { RegisterModal } from '../components/modals/RegisterModal';
 import { DokladModal } from '../components/modals/DokladModal';
 import { StatusModal } from '../components/modals/StatusModal';
+import { CheckDokladModal } from '../components/modals/CheckDokladModal';
+import { CheckAllUsersModal } from '../components/modals/CheckAllUsersModal';
 
 interface UserProfile {
   vkUserId: number;
@@ -37,16 +33,12 @@ interface UserProfile {
   lastName: string;
   photoUrl?: string;
   photo200?: string;
-  // Новые поля
   category?: string;
   unit?: string;
   year_nabor?: string;
   fakultet?: string;
   kafedra?: string;
   podgruppa?: string;
-  password?: string;
-  last_name?: string;
-  name?: string;
   status?: string;
   middle_name?: string;
   phone_number?: string;
@@ -54,20 +46,23 @@ interface UserProfile {
   year_postupleniya?: string;
   ref_code?: string;
   agreeToDataProcessing: boolean;
- // Добавляем поле для согласия на обработку данных
+  // другие поля...
 }
 
 export const Profile = () => {
-    // В начале компонента (состояния)
-  const [captchaNum1, setCaptchaNum1] = useState(() => Math.floor(Math.random() * 11) + 5);
-  const [captchaNum2, setCaptchaNum2] = useState(() => Math.floor(Math.random() * 11) + 5);
-
-  // Функция обновления капчи
-
+  // ==================== Состояния ====================
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const { showSnackbar } = useSnackbar();
+
+  const [subordinates, setSubordinates] = useState<any[]>([]);
+  const [loadingSubordinates, setLoadingSubordinates] = useState(false);
+
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [loadingAllUsers, setLoadingAllUsers] = useState(false);
+
+  const [captchaNum1, setCaptchaNum1] = useState(() => Math.floor(Math.random() * 11) + 5);
+  const [captchaNum2, setCaptchaNum2] = useState(() => Math.floor(Math.random() * 11) + 5);
 
   const [activeModal, setActiveModal] = useState<string | null>(null);
 
@@ -90,11 +85,19 @@ export const Profile = () => {
     captchaAnswer: '',
     agreeToDataProcessing: false,
   });
+
+  const { showSnackbar } = useSnackbar();
+
+  // ==================== Эффекты ====================
   useEffect(() => {
     if (activeModal === 'doklad') {
       refreshCaptcha();
     }
   }, [activeModal]);
+
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
 
   const refreshCaptcha = () => {
     setCaptchaNum1(Math.floor(Math.random() * 11) + 5);
@@ -102,10 +105,7 @@ export const Profile = () => {
     setFormData(prev => ({ ...prev, captchaAnswer: '' }));
   };
 
-  useEffect(() => {
-    loadUserProfile();
-  }, []);
-
+  // ==================== Загрузка профиля ====================
   const loadUserProfile = async () => {
     setIsLoading(true);
     try {
@@ -130,28 +130,7 @@ export const Profile = () => {
       if (response.ok) {
         const data = await response.json();
         const profile = data.user || data;
-
         setUser(profile);
-
-        setFormData({
-          category: profile.category || '',
-          unit: profile.unit || '',
-          year_nabor: profile.year_nabor || '',
-          fakultet: profile.fakultet || '',
-          kafedra: profile.kafedra || '',
-          podgruppa: profile.podgruppa || '',
-          password: profile.password || '',
-          last_name: profile.last_name || '',
-          name: profile.name || '',
-          status: profile.status || '',
-          middle_name: profile.middle_name || '',
-          phone_number: profile.phone_number || '',
-          kafedra_postupleniya: profile.kafedra_postupleniya || '',
-          year_postupleniya: profile.year_postupleniya || '',
-          ref_code: profile.ref_code || '',
-          captchaAnswer: '', // Капча не сохраняется, всегда начинается с пустой строки
-          agreeToDataProcessing: profile.agreeToDataProcessing || false, // Добавляем поле для согласия на обработку данных
-        });
       }
     } catch (error) {
       console.error('❌ Ошибка при загрузке профиля:', error);
@@ -160,12 +139,24 @@ export const Profile = () => {
     }
   };
 
+  // ==================== Открытие модалок ====================
   const openModal_register = () => setActiveModal('register');
   const openModal_doklad = () => setActiveModal('doklad');
   const openModal_status = () => setActiveModal('status');
 
+  const openModal_checkdoklad = async () => {
+    setActiveModal('checkdoklad');
+    await handleSave_checkdoklad();
+  };
+
+  const openModal_checkallusers = async () => {
+    setActiveModal('checkallusers');
+    await handleSave_checkallusers();
+  };
+
   const closeModal = () => setActiveModal(null);
 
+  // ==================== Обработчики ====================
   const handleSave = async () => {
     if (!user) return;
 
@@ -212,6 +203,16 @@ export const Profile = () => {
   };
 
   const handleSave_doklad = async () => {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    console.log(`Время сейчас: ${hours}:${minutes}`);
+    const currentMinutes = hours * 60 + minutes;
+    const targetMinutes = 21 * 60 + 30;
+    if (currentMinutes < targetMinutes) {
+      showSnackbar('Доклад производится не раньше 21:30!', 'error');
+      return;
+    }
     // Проверка капчи
     if (!formData.captchaAnswer || parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2) {
       showSnackbar('Неверный ответ на проверку!', 'error');
@@ -308,6 +309,82 @@ export const Profile = () => {
     }
   };
 
+  const handleSave_checkdoklad = async () => {
+    setLoadingSubordinates(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/doklad/subordinates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          vkUserId: user?.vkUserId  // ← берём из formData, а не из user
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setSubordinates(data.subordinates || []);
+      } else {
+        throw new Error('Ошибка загрузки');
+      }
+    } catch (error) {
+      console.error(error);
+      showSnackbar('Не удалось загрузить подчинённых', 'error');
+      setSubordinates([]);
+    } finally {
+      setLoadingSubordinates(false);
+    }
+  };
+
+  const handleSave_checkallusers = async () => {
+    setLoadingAllUsers(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/allusers`, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // ✅ Правильное извлечение массива пользователей
+      let usersArray: AllUser[] = [];
+
+      if (data?.success && Array.isArray(data.allUsers)) {
+        usersArray = data.allUsers;
+      } 
+      else if (Array.isArray(data.allusers)) {
+        usersArray = data.allusers;
+      } 
+      else if (Array.isArray(data.users)) {
+        usersArray = data.users;
+      } 
+      else if (Array.isArray(data)) {
+        usersArray = data;
+      }
+
+      console.log(`✅ Загружено пользователей: ${usersArray.length}`);
+      
+      // Дополнительная отладка
+      if (usersArray.length > 0) {
+        console.log('Первый пользователь:', usersArray[0]);
+      }
+
+      setAllUsers(usersArray);
+
+    } catch (error) {
+      console.error('❌ Ошибка при загрузке всех пользователей:', error);
+      showSnackbar('Не удалось загрузить всех пользователей', 'error');
+      setAllUsers([]);
+    } finally {
+      setLoadingAllUsers(false);
+    }
+  };
+
+  // ==================== Рендер ====================
   if (isLoading) {
     return (
       <Panel id="profile">
@@ -326,94 +403,93 @@ export const Profile = () => {
       {/* Шапка */}
       <Group>
         <Box style={{ textAlign: 'center', padding: '32px 16px 20px' }}>
-          <Avatar 
-            size={96} 
-            src={user?.photo200 || user?.photoUrl} 
-            style={{ margin: '0 auto 16px' }}
-          >
+          <Avatar size={96} src={user?.photo200 || user?.photoUrl} style={{ margin: '0 auto 16px' }}>
             {!user?.photo200 && !user?.photoUrl && <Icon28UserCircleOutline width={48} height={48} />}
           </Avatar>
-
           <Title level="1" weight="3">
             {user?.firstName} {user?.lastName}
           </Title>
           <Text weight="2" style={{ color: 'var(--vkui--color_text_subtle)', marginTop: 4 }}>
-            Страничка находится в разработке, скоро появятся дополнительные функции!
+            Мой пригласительный код: {user?.vkUserId}
+          </Text>
+          <Text weight="2" style={{ color: 'var(--vkui--color_text_subtle)', marginTop: 4 }}>
+            Страничка находится в разработке
           </Text>
         </Box>
       </Group>
 
-      {/* Кнопка открытия формы */}
+      {/* Кнопки */}
       <Group>
         <Box padding="0 16px 16px">
-          <Button 
-            size="l" 
-            stretched 
-            mode="primary" 
-            onClick={openModal_register}
-          >
-            {user?.category ? 'Редактировать профиль' : 'Заполнить профиль (для связи с Вами)'}
+          <Button size="l" stretched mode="primary" onClick={openModal_register}>
+            {user?.category ? 'Редактировать профиль' : 'Заполнить профиль'}
           </Button>
         </Box>
 
-        <Box padding="0 16px 16px">
-          {user?.category === 'Курсант' && (
-            <Button 
-              size="l" 
-              stretched 
-              mode="primary" 
-              onClick={openModal_doklad}
-            >
-              Доклад о состоянии дел
-            </Button>
-          )}
-        </Box>
+        {(user?.category === 'Курсант' || user?.unit === 'Курсовой офицер' || user?.unit === 'Начальник курса') && (
+          <>
+            <Box padding="0 16px 16px">
+              <Button size="l" stretched mode="primary" onClick={openModal_doklad}>
+                Доклад о состоянии дел
+              </Button>
+            </Box>
+            <Box padding="0 16px 16px">
+              <Button size="l" stretched mode="primary" onClick={openModal_status}>
+                Изменить статус
+              </Button>
+            </Box>
+          </>
+        )}
 
-        <Box padding="0 16px 16px">
-          {user?.category === 'Курсант' && (
+        {(user?.unit?.includes('Командир') || user?.unit === 'Старшина курса' || user?.unit === 'Курсовой офицер' || user?.unit === 'Начальник курса') && (
+          <Box padding="0 16px 16px">
             <Button 
               size="l" 
               stretched 
-              mode="primary" 
-              onClick={openModal_status}
+              mode="secondary" 
+              onClick={openModal_checkdoklad}
+              before={<Icon28Users />}
             >
-              Изменить статус
+              Доклады подчинённых
             </Button>
-          )}
-        </Box>
+          </Box>
+        )}
+
+        {user?.unit === 'Начальник курса' && (
+          <Box padding="0 16px 16px">
+            <Button 
+              size="l" 
+              stretched 
+              mode="secondary" 
+              onClick={openModal_checkallusers}
+              before={<Icon28Users />}
+            >
+              Показать всех пользователей
+            </Button>
+          </Box>
+        )}
       </Group>
 
       {/* Модальные окна */}
-      <RegisterModal
-        open={activeModal === 'register'}
+      <RegisterModal open={activeModal === 'register'} onClose={closeModal} formData={formData} setFormData={setFormData} onSave={handleSave} saving={saving} user={user} />
+
+      <DokladModal open={activeModal === 'doklad'} onClose={closeModal} formData={formData} setFormData={setFormData} onSave={handleSave_doklad} saving={saving} captchaNum1={captchaNum1} captchaNum2={captchaNum2} refreshCaptcha={refreshCaptcha} />
+
+      <StatusModal open={activeModal === 'status'} onClose={closeModal} formData={formData} setFormData={setFormData} onSave={handleSave_status} saving={saving} user={user} />
+
+      <CheckDokladModal
+        open={activeModal === 'checkdoklad'}
         onClose={closeModal}
-        formData={formData}
-        setFormData={setFormData}
-        onSave={handleSave}
-        saving={saving}
+        subordinates={subordinates}
+        loading={loadingSubordinates}
         user={user}
       />
 
-      <DokladModal
-        open={activeModal === 'doklad'}
+      <CheckAllUsersModal
+        open={activeModal === 'checkallusers'}
         onClose={closeModal}
-        formData={formData}
-        setFormData={setFormData}
-        onSave={handleSave_doklad}
-        saving={saving}
-        captchaNum1={captchaNum1}
-        captchaNum2={captchaNum2}
-        refreshCaptcha={refreshCaptcha}
-      />
-
-      <StatusModal
-        open={activeModal === 'status'}
-        onClose={closeModal}
-        formData={formData}
-        setFormData={setFormData}
-        onSave={handleSave_status}
-        saving={saving}
-        user={user}
+        allusers={allUsers}           // ← исправлено имя пропса
+        loading={loadingAllUsers}
       />
     </Panel>
   );

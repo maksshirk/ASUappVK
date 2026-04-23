@@ -108,7 +108,7 @@ export const DepartmentCard = ({ department, onClick }: Props) => {
         >
           {department.description}
         </Text>
-
+        
         {/* Кнопка "Подробнее" */}
         <Button 
           mode="outline" 
