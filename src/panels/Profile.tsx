@@ -203,16 +203,29 @@ export const Profile = () => {
   };
 
   const handleSave_doklad = async () => {
-    const now = new Date();
-    const hours = now.getHours();
-    const minutes = now.getMinutes();
-    console.log(`Время сейчас: ${hours}:${minutes}`);
+    const getMoscowTime = () => {
+      const now = new Date();
+      const moscowTime = new Date(now.getTime() + (3 * 60 * 60 * 1000));
+      
+      const hours = moscowTime.getUTCHours();
+      const minutes = moscowTime.getUTCMinutes();
+      
+      return { hours, minutes };
+    };
+    const { hours, minutes } = getMoscowTime();
+    console.log(`Московское время: ${hours}:${minutes}`);
     const currentMinutes = hours * 60 + minutes;
     const targetMinutes = 21 * 60 + 30;
     if (currentMinutes < targetMinutes) {
       showSnackbar('Доклад производится не раньше 21:30!', 'error');
       return;
     }
+    
+    if (!user?.status || user.status.trim() === '') {
+      showSnackbar('Сначала установите свой статус', 'error');
+      return;
+    }
+
     // Проверка капчи
     if (!formData.captchaAnswer || parseInt(formData.captchaAnswer) !== captchaNum1 + captchaNum2) {
       showSnackbar('Неверный ответ на проверку!', 'error');
